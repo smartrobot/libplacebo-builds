@@ -18,13 +18,12 @@ jobs:
             artifact_name: libplacebo-linux
             setup_deps: |
               sudo apt-get update
-              sudo apt-get install -y ninja-build pkg-config python3-jinja2 \
+              sudo apt-get install -y ninja-build pkg-config \
                 libvulkan-dev vulkan-utility-libraries-dev spirv-tools \
                 glslang-tools spirv-cross \
                 liblcms2-dev libxxhash-dev libunwind-dev
               curl -LsSf https://astral.sh/uv/install.sh | sh
               source ~/.cargo/env
-              uv tool install meson
           - os: windows-latest
             artifact_name: libplacebo-windows
             setup_deps: |
