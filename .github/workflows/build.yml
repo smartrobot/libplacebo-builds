@@ -103,6 +103,14 @@ jobs:
           cp -r subprojects/libplacebo/src/include/* dev-package/include/ 2>/dev/null || true
         fi
         
+        # Copy config files
+        if [ -f "subprojects/libplacebo/src/config.h.in" ]; then
+          cp subprojects/libplacebo/src/config.h.in dev-package/include/ 2>/dev/null || true
+        fi
+        if [ -f "builddir/subprojects/libplacebo/src/config.h" ]; then
+          cp builddir/subprojects/libplacebo/src/config.h dev-package/include/ 2>/dev/null || true
+        fi
+        
         # Copy pkg-config file if it exists
         mkdir -p dev-package/lib/pkgconfig
         if [ -f "builddir/subprojects/libplacebo/libplacebo.pc" ]; then
