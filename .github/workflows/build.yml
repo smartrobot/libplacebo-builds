@@ -70,13 +70,10 @@ jobs:
     - name: Install Python dependencies
       run: uv sync
 
-    - name: Setup build directory
+    - name: Download subprojects
       run: |
-        if [ "${{ matrix.name }}" = "windows" ]; then
-          uv run meson setup builddir --default-library=shared --cmake-prefix-path="$VCPKG_ROOT/installed/x64-windows"
-        else
-          uv run meson setup builddir --default-library=shared
-        fi
+        echo "Downloading subprojects..."
+        uv run meson subprojects download
       shell: bash
 
     - name: Sync shaderc dependencies
@@ -85,6 +82,15 @@ jobs:
         echo "Syncing shaderc dependencies..."
         python3 utils/git-sync-deps
         echo "Shaderc dependencies synced successfully"
+      shell: bash
+
+    - name: Setup build directory
+      run: |
+        if [ "${{ matrix.name }}" = "windows" ]; then
+          uv run meson setup builddir --default-library=shared --cmake-prefix-path="$VCPKG_ROOT/installed/x64-windows"
+        else
+          uv run meson setup builddir --default-library=shared
+        fi
       shell: bash
 
     - name: Compile  
