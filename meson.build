@@ -22,6 +22,7 @@ spirv_cross_dep = dependency('spirv-cross-c-shared', required: false, allow_fall
 libplacebo_proj = subproject('libplacebo', default_options: [
   'default_library=shared',
   'vulkan=auto',
+  'vulkan-registry=' + meson.current_source_dir() + '/subprojects/vulkan-headers/registry/vk.xml',
   'opengl=disabled',
   'demos=false',
   'tests=false'
