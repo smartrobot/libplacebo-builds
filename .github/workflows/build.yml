@@ -30,7 +30,7 @@ jobs:
             setup_deps: |
               # Install basic tools
               choco install ninja vulkan-sdk python3 git cmake
-              pip install jinja2 meson
+              powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
               # Setup vcpkg for dependencies
               git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
               C:\vcpkg\bootstrap-vcpkg.bat
@@ -52,13 +52,7 @@ jobs:
       run: uv sync
 
     - name: Setup build directory
-      run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          meson setup builddir --default-library=shared
-        else
-          uv run meson setup builddir --default-library=shared
-        fi
-      shell: bash
+      run: uv run meson setup builddir --default-library=shared
 
     - name: Compile  
       run: uv run meson compile -C builddir
