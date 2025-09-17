@@ -167,6 +167,50 @@ jobs:
           ${{ matrix.artifact_name }}.tar.gz
           ${{ matrix.artifact_name }}.zip
 
+  auto-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      
+    - name: Get short SHA
+      id: sha
+      run: echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+      
+    - name: Create automatic release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: auto-${{ steps.sha.outputs.short_sha }}
+        name: "Automatic Build ${{ steps.sha.outputs.short_sha }}"
+        body: |
+          **Automatic release from latest main branch**
+          
+          - Commit: ${{ github.sha }}
+          - Author: ${{ github.actor }}
+          - Vulkan-only libplacebo build
+          - Cross-platform: Linux and Windows
+          
+          ## Download
+          - **Linux**: libplacebo-linux.tar.gz
+          - **Windows**: libplacebo-windows.zip
+          
+          Both packages include:
+          - Shared libraries (.so/.dll)
+          - Header files for development
+          - pkg-config files
+          - Documentation
+          
+          Built with Meson + Vulkan support only.
+        files: |
+          libplacebo-linux/*.tar.gz
+          libplacebo-windows/*.zip
+        prerelease: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   release:
     needs: build
     runs-on: ubuntu-latest
