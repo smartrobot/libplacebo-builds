@@ -99,8 +99,8 @@ jobs:
     - name: Test
       run: uv run meson test -C builddir -v
 
-    - name: Install
-      run: uv run meson install -C builddir --destdir=install
+    - name: Install (skip - copy files directly)
+      run: echo "Skipping meson install to avoid building unnecessary glslc tool"
 
     - name: Package development files
       run: |
@@ -121,18 +121,13 @@ jobs:
           cp -r subprojects/libplacebo/src/include/* dev-package/include/ 2>/dev/null || true
         fi
         
-        # Copy generated config.h from build directory (overrides any from source)
+        # Copy generated config.h from build directory
         if [ -f "builddir/subprojects/libplacebo/src/include/libplacebo/config.h" ]; then
           cp builddir/subprojects/libplacebo/src/include/libplacebo/config.h dev-package/include/libplacebo/
           echo "Copied generated config.h from build directory"
-        elif [ -f "builddir/install/usr/local/include/libplacebo/config.h" ]; then
-          cp builddir/install/usr/local/include/libplacebo/config.h dev-package/include/libplacebo/
-          echo "Copied generated config.h from install directory"
         else
           echo "ERROR: Generated config.h not found!"
-          echo "Expected locations:"
-          echo "  - builddir/subprojects/libplacebo/src/include/libplacebo/config.h"
-          echo "  - builddir/install/usr/local/include/libplacebo/config.h"
+          echo "Expected location: builddir/subprojects/libplacebo/src/include/libplacebo/config.h"
           echo ""
           echo "Actual config.h files found:"
           find builddir -name "config.h" | head -10
