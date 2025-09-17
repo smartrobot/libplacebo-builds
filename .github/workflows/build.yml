@@ -36,10 +36,14 @@ jobs:
               # Install ninja via pip (more reliable than choco)
               pip install ninja
               
-              # Download and install Vulkan SDK manually
-              curl -L -o VulkanSDK.exe "https://sdk.lunarg.com/sdk/download/1.3.290.0/windows/VulkanSDK-1.3.290.0-Installer.exe"
-              ./VulkanSDK.exe --accept-licenses --default-answer --confirm-command install
-              echo "VULKAN_SDK=C:\VulkanSDK\1.3.290.0" >> $GITHUB_ENV
+              # Install Vulkan SDK using chocolatey (simpler approach)
+              choco install vulkan-sdk --force --ignore-checksums
+              # Set up environment manually if needed
+              $VulkanPath = Get-ChildItem "C:\VulkanSDK" | Sort-Object Name -Descending | Select-Object -First 1
+              if ($VulkanPath) {
+                echo "VULKAN_SDK=$($VulkanPath.FullName)" >> $env:GITHUB_ENV
+                echo "VK_SDK_PATH=$($VulkanPath.FullName)" >> $env:GITHUB_ENV
+              }
               
               # All other dependencies handled by Meson wrap files
               echo "Using Vulkan SDK + Meson wrap files for dependencies"
@@ -71,12 +75,13 @@ jobs:
     - name: Package development files
       run: |
         # Create development package structure
-        mkdir -p dev-package/lib dev-package/include
+        mkdir -p dev-package/lib dev-package/include dev-package/docs
         
         # Copy libraries
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
           cp builddir/subprojects/libplacebo/src/*.dll dev-package/lib/ || true
           cp builddir/subprojects/libplacebo/src/*.lib dev-package/lib/ || true
+          cp builddir/subprojects/libplacebo/src/*.pdb dev-package/lib/ || true
         else
           cp builddir/subprojects/libplacebo/src/*.so* dev-package/lib/ || true
         fi
@@ -88,18 +93,57 @@ jobs:
         mkdir -p dev-package/lib/pkgconfig
         cp builddir/subprojects/libplacebo/libplacebo.pc dev-package/lib/pkgconfig/ || true
         
-        # Create simple usage example
-        cat > dev-package/README.txt << EOF
+        # Copy documentation
+        cp subprojects/libplacebo/README.md dev-package/docs/ || true
+        cp subprojects/libplacebo/LICENSE dev-package/docs/ || true
+        
+        # Create comprehensive usage guide
+        cat > dev-package/README.txt << 'EOF'
         libplacebo Development Package
         =============================
         
-        Include path: include/
-        Library path: lib/
+        Cross-platform GPU-accelerated video/image rendering library
         
-        Example usage:
-        Linux: gcc -I./include -L./lib -lplacebo myapp.c
-        Windows: cl /I.\include myapp.c .\lib\placebo.lib
+        Directory Structure:
+        - lib/          : Shared libraries (.so/.dll) and import libraries (.lib)
+        - include/      : C/C++ header files
+        - docs/         : Documentation and license
+        - lib/pkgconfig/: pkg-config files for build systems
+        
+        Usage Examples:
+        
+        Linux (GCC):
+        gcc -I./include -L./lib -lplacebo myapp.c
+        
+        Linux (pkg-config):
+        gcc $(pkg-config --cflags --libs ./lib/pkgconfig/libplacebo.pc) myapp.c
+        
+        Windows (MSVC):
+        cl /I.\include myapp.c .\lib\placebo.lib
+        
+        Windows (MinGW):
+        gcc -I./include -L./lib -lplacebo myapp.c
+        
+        CMake Integration:
+        find_library(PLACEBO_LIBRARY NAMES placebo PATHS ${CMAKE_CURRENT_SOURCE_DIR}/lib)
+        target_include_directories(myapp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+        target_link_libraries(myapp ${PLACEBO_LIBRARY})
+        
+        Features Included:
+        - Vulkan rendering backend
+        - SPIR-V shader compilation
+        - Advanced color processing
+        - HDR tone mapping
+        - Custom shader support
+        
+        For documentation visit: https://libplacebo.org/
         EOF
+        
+        # Create version info file
+        echo "libplacebo $(cat subprojects/libplacebo/VERSION 2>/dev/null || echo 'unknown')" > dev-package/VERSION
+        echo "Built on: $(date)" >> dev-package/VERSION
+        echo "Platform: ${{ matrix.os }}" >> dev-package/VERSION
+        echo "Architecture: x86_64" >> dev-package/VERSION
       shell: bash
 
     - name: Package artifacts (Linux)
