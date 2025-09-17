@@ -10,6 +10,7 @@ meson-private/
 
 # Subprojects (downloaded dependencies)
 subprojects/*/
+subprojects/libplacebo/*.wrap
 !subprojects/*.wrap
 
 # Python virtual environment
@@ -71,3 +72,4 @@ CMakeFiles/
 cmake_install.cmake
 
 .claude
+/subprojects/libplacebo/.meson-subproject-wrap-hash.txt
