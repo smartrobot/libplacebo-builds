@@ -18,8 +18,7 @@ cc = meson.get_compiler('c')
 # Get libplacebo via wrap
 libplacebo_proj = subproject('libplacebo', default_options: [
   'default_library=shared',
-  'vulkan=enabled',
-  'vk-proc-addr=enabled',
+  'vulkan=auto',
   'opengl=disabled',
   'demos=false',
   'tests=false'
