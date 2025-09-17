@@ -36,8 +36,13 @@ jobs:
               # Install ninja via pip (more reliable than choco)
               pip install ninja
               
-              # All dependencies will be handled by Meson wrap files
-              echo "Using Meson wrap files for all dependencies"
+              # Download and install Vulkan SDK manually
+              curl -L -o VulkanSDK.exe "https://sdk.lunarg.com/sdk/download/1.3.290.0/windows/VulkanSDK-1.3.290.0-Installer.exe"
+              ./VulkanSDK.exe --accept-licenses --default-answer --confirm-command install
+              echo "VULKAN_SDK=C:\VulkanSDK\1.3.290.0" >> $GITHUB_ENV
+              
+              # All other dependencies handled by Meson wrap files
+              echo "Using Vulkan SDK + Meson wrap files for dependencies"
 
     runs-on: ${{ matrix.os }}
 

@@ -1,0 +1,8 @@
+[wrap-git]
+url = https://github.com/KhronosGroup/Vulkan-Loader.git
+revision = main
+depth = 1
+method = cmake
+
+[provide]
+vulkan-loader = Vulkan_Loader_dep
