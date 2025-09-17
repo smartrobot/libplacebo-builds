@@ -5,4 +5,4 @@ depth = 1
 method = cmake
 
 [provide]
-vulkan = vulkan_dep
+vulkan = Vulkan_Headers_dep
