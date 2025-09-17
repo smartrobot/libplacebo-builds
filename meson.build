@@ -12,12 +12,13 @@ project('libplacebo-builds', 'c',
 
 cc = meson.get_compiler('c')
 
-# Dependencies (handled by libplacebo subproject)
+# Dependencies - ensure Vulkan headers are available first
+vulkan_dep = dependency('vulkan', required: false, allow_fallback: true)
 
 # Get libplacebo via wrap
 libplacebo_proj = subproject('libplacebo', default_options: [
   'default_library=shared',
-  'vulkan=auto',
+  'vulkan=enabled',
   'opengl=disabled',
   'demos=false',
   'tests=false'
