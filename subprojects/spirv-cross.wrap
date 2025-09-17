@@ -1,9 +1,8 @@
 [wrap-git]
 url = https://github.com/KhronosGroup/SPIRV-Cross.git
-revision = head
+revision = main
 depth = 1
+method = cmake
 
 [provide]
-spirv-cross-core = spirv_cross_core_dep
-spirv-cross-glsl = spirv_cross_glsl_dep
-spirv-cross-hlsl = spirv_cross_hlsl_dep
+spirv-cross-c-shared = spirv_cross_c_shared_dep
