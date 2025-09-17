@@ -28,16 +28,17 @@ jobs:
           - os: windows-latest
             artifact_name: libplacebo-windows
             setup_deps: |
-              # Install basic tools
-              choco install ninja vulkan-sdk python3 git cmake
+              # Use GitHub Actions pre-installed tools where possible
+              # Python3, Git, CMake are already available
+              
+              # Install uv
               powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-              # Setup vcpkg for dependencies
-              git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
-              C:\vcpkg\bootstrap-vcpkg.bat
-              C:\vcpkg\vcpkg.exe install glslang:x64-windows spirv-cross:x64-windows shaderc:x64-windows lcms:x64-windows xxhash:x64-windows
-              # Set environment for meson to find dependencies
-              echo "PKG_CONFIG_PATH=C:\vcpkg\installed\x64-windows\lib\pkgconfig" >> $GITHUB_ENV
-              echo "CMAKE_PREFIX_PATH=C:\vcpkg\installed\x64-windows" >> $GITHUB_ENV
+              
+              # Install ninja via pip (more reliable than choco)
+              pip install ninja
+              
+              # All dependencies will be handled by Meson wrap files
+              echo "Using Meson wrap files for all dependencies"
 
     runs-on: ${{ matrix.os }}
 
@@ -63,16 +64,50 @@ jobs:
     - name: Install
       run: uv run meson install -C builddir --destdir=install
 
+    - name: Package development files
+      run: |
+        # Create development package structure
+        mkdir -p dev-package/lib dev-package/include
+        
+        # Copy libraries
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          cp builddir/subprojects/libplacebo/src/*.dll dev-package/lib/ || true
+          cp builddir/subprojects/libplacebo/src/*.lib dev-package/lib/ || true
+        else
+          cp builddir/subprojects/libplacebo/src/*.so* dev-package/lib/ || true
+        fi
+        
+        # Copy headers
+        cp -r subprojects/libplacebo/src/include/* dev-package/include/ || true
+        
+        # Copy pkg-config file
+        mkdir -p dev-package/lib/pkgconfig
+        cp builddir/subprojects/libplacebo/libplacebo.pc dev-package/lib/pkgconfig/ || true
+        
+        # Create simple usage example
+        cat > dev-package/README.txt << EOF
+        libplacebo Development Package
+        =============================
+        
+        Include path: include/
+        Library path: lib/
+        
+        Example usage:
+        Linux: gcc -I./include -L./lib -lplacebo myapp.c
+        Windows: cl /I.\include myapp.c .\lib\placebo.lib
+        EOF
+      shell: bash
+
     - name: Package artifacts (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        cd install
+        cd dev-package
         tar -czf ../${{ matrix.artifact_name }}.tar.gz .
 
     - name: Package artifacts (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        cd install
+        cd dev-package
         7z a ../${{ matrix.artifact_name }}.zip .
 
     - name: Upload artifacts
