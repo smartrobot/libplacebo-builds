@@ -1,15 +1,10 @@
-[wrap-file]
-directory = shaderc-2024.3
-source_url = https://github.com/google/shaderc/archive/refs/tags/v2024.3.tar.gz
-source_filename = shaderc-2024.3.tar.gz
-wrapdb_version = 2024.3
-source_hash=D5C68B5DE5D4C7859D9699054493E0A42A2A5EB21B425D63F7B7DD543DB0D708
+[wrap-git]
+url = https://github.com/google/shaderc.git
+revision = v2024.3
+clone-recursive = true
+method = cmake
 
 [provide]
 shaderc = shaderc_dep
 shaderc_combined = shaderc_combined_dep
 shaderc_util = shaderc_util_dep
-spvtools = spvtools_dep
-SPIRV_Tools_static = SPIRV_Tools_static_dep
-SPIRV_Tools_opt = SPIRV_Tools_opt_dep
-glslang_standalone = glslang_standalone_dep

@@ -11,11 +11,24 @@ project('libplacebo-builds', 'c',
 )
 
 cc = meson.get_compiler('c')
+cmake = import('cmake')
 
-# Dependencies - let libplacebo find them automatically
-# The Vulkan SDK provides vulkan, spirv-cross handles SPIR-V
+# Build shaderc as a CMake subproject 
+shaderc_sub_proj = cmake.subproject('shaderc')
 
-# Get libplacebo via wrap
+# Get the main shaderc dependency that libplacebo needs  
+shaderc_dep = shaderc_sub_proj.dependency('shaderc')
+
+# Create a proper dependency with version info for libplacebo
+shaderc_dep_with_version = declare_dependency(
+  dependencies: shaderc_dep,
+  version: '2024.3'  # Match the version in shaderc.wrap
+)
+
+# Override the shaderc dependency for libplacebo
+meson.override_dependency('shaderc', shaderc_dep_with_version)
+
+# Get libplacebo via wrap - it should now find shaderc
 libplacebo_proj = subproject('libplacebo', default_options: [
   'default_library=shared',
   'vulkan=auto',
