@@ -40,12 +40,19 @@ jobs:
               # Install ninja via pip (more reliable than choco)
               pip install ninja
               
-              # Skip Vulkan SDK - libplacebo wrap now includes Vulkan-Headers submodule
-              # This provides headers, libplacebo can work without system Vulkan runtime
-              echo "Using libplacebo's bundled Vulkan headers"
+              # Install additional dependencies via vcpkg to match Linux feature set
+              git clone https://github.com/Microsoft/vcpkg.git
+              cd vcpkg
+              ./bootstrap-vcpkg.bat
+              ./vcpkg.exe install lcms:x64-windows xxhash:x64-windows
+              cd ..
               
-              # All other dependencies handled by Meson wrap files
-              echo "Using Vulkan SDK + Meson wrap files for dependencies"
+              # Set environment for vcpkg
+              echo "CMAKE_TOOLCHAIN_FILE=$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
+              echo "VCPKG_ROOT=$PWD/vcpkg" >> $GITHUB_ENV
+              
+              # Skip Vulkan SDK - libplacebo wrap now includes Vulkan-Headers submodule
+              echo "Using libplacebo's bundled Vulkan headers + vcpkg dependencies"
 
     runs-on: ${{ matrix.os }}
 
@@ -60,7 +67,13 @@ jobs:
       run: uv sync
 
     - name: Setup build directory
-      run: uv run meson setup builddir --default-library=shared
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          uv run meson setup builddir --default-library=shared --cmake-prefix-path="$VCPKG_ROOT/installed/x64-windows"
+        else
+          uv run meson setup builddir --default-library=shared
+        fi
+      shell: bash
 
     - name: Compile  
       run: uv run meson compile -C builddir
@@ -155,7 +168,7 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         cd dev-package
-        tar -czf ../${{ matrix.artifact_name }}.tar.gz .
+        zip -r ../${{ matrix.artifact_name }}.zip .
 
     - name: Package artifacts (Windows)
       if: matrix.os == 'windows-latest'
@@ -167,9 +180,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
-        path: |
-          ${{ matrix.artifact_name }}.tar.gz
-          ${{ matrix.artifact_name }}.zip
+        path: ${{ matrix.artifact_name }}.zip
 
   auto-release:
     needs: build
@@ -198,7 +209,7 @@ jobs:
           - Cross-platform: Linux and Windows
           
           ## Download
-          - **Linux**: libplacebo-linux.tar.gz
+          - **Linux**: libplacebo-linux.zip
           - **Windows**: libplacebo-windows.zip
           
           Both packages include:
@@ -209,7 +220,7 @@ jobs:
           
           Built with Meson + Vulkan support only.
         files: |
-          libplacebo-linux/*.tar.gz
+          libplacebo-linux/*.zip
           libplacebo-windows/*.zip
         prerelease: true
       env:
@@ -228,7 +239,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          libplacebo-linux/*.tar.gz
+          libplacebo-linux/*.zip
           libplacebo-windows/*.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
