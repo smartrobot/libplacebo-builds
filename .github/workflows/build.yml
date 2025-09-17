@@ -94,7 +94,7 @@ jobs:
       shell: bash
 
     - name: Compile  
-      run: uv run meson compile -C builddir
+      run: uv run meson compile -C builddir placebo -j 4
 
     - name: Test
       run: uv run meson test -C builddir -v
