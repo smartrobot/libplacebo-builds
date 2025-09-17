@@ -25,7 +25,8 @@ opt_var.add_cmake_defines({
   'SHADERC_SKIP_EXAMPLES': true,
   'SHADERC_SKIP_COPYRIGHT_CHECK': true,
   'SPIRV_BUILD_TESTS': false,
-  'SPIRV_TOOLS_BUILD_STATIC': false
+  'SPIRV_TOOLS_BUILD_STATIC': true,
+  'BUILD_SHARED_LIBS': false
 })
 shaderc_sub_proj = cmake.subproject('shaderc', options: opt_var)
 
@@ -40,18 +41,20 @@ shaderc_dep_with_version = declare_dependency(
 
 # Override the shaderc dependency for libplacebo
 meson.override_dependency('shaderc', shaderc_dep_with_version)
+
 # Get libplacebo via wrap - it should now find shaderc
 libplacebo_proj = subproject('libplacebo', default_options: [
   'default_library=shared',
   'vulkan=enabled',
   'opengl=disabled',
   'demos=false',
-  'tests=false'
+  'tests=false',
+  'shaderc=enabled',
+  'glslang=enabled'
 ])
 
 libplacebo_dep = libplacebo_proj.get_variable('libplacebo')
 
 # The shared library will be installed by the subproject
 
-# Basic test to ensure the subproject built successfully
-test('build_test', find_program('echo'), args: ['libplacebo built successfully'])
+# No tests needed - build verification only
