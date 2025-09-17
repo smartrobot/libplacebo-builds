@@ -36,14 +36,9 @@ jobs:
               # Install ninja via pip (more reliable than choco)
               pip install ninja
               
-              # Install Vulkan SDK using chocolatey (simpler approach)
-              choco install vulkan-sdk --force --ignore-checksums
-              # Set up environment manually if needed
-              $VulkanPath = Get-ChildItem "C:\VulkanSDK" | Sort-Object Name -Descending | Select-Object -First 1
-              if ($VulkanPath) {
-                echo "VULKAN_SDK=$($VulkanPath.FullName)" >> $env:GITHUB_ENV
-                echo "VK_SDK_PATH=$($VulkanPath.FullName)" >> $env:GITHUB_ENV
-              }
+              # Skip Vulkan SDK - libplacebo wrap now includes Vulkan-Headers submodule
+              # This provides headers, libplacebo can work without system Vulkan runtime
+              echo "Using libplacebo's bundled Vulkan headers"
               
               # All other dependencies handled by Meson wrap files
               echo "Using Vulkan SDK + Meson wrap files for dependencies"
