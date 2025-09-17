@@ -74,19 +74,25 @@ jobs:
         
         # Copy libraries
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          cp builddir/subprojects/libplacebo/src/*.dll dev-package/lib/ || true
-          cp builddir/subprojects/libplacebo/src/*.lib dev-package/lib/ || true
-          cp builddir/subprojects/libplacebo/src/*.pdb dev-package/lib/ || true
+          find builddir/subprojects/libplacebo/src -name "*.dll" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
+          find builddir/subprojects/libplacebo/src -name "*.lib" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
+          find builddir/subprojects/libplacebo/src -name "*.pdb" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
         else
-          cp builddir/subprojects/libplacebo/src/*.so* dev-package/lib/ || true
+          find builddir/subprojects/libplacebo/src -name "*.so*" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
         fi
         
         # Copy headers
-        cp -r subprojects/libplacebo/src/include/* dev-package/include/ || true
+        if [ -d "subprojects/libplacebo/src/include" ]; then
+          cp -r subprojects/libplacebo/src/include/* dev-package/include/ 2>/dev/null || true
+        fi
         
-        # Copy pkg-config file
+        # Copy pkg-config file if it exists
         mkdir -p dev-package/lib/pkgconfig
-        cp builddir/subprojects/libplacebo/libplacebo.pc dev-package/lib/pkgconfig/ || true
+        if [ -f "builddir/subprojects/libplacebo/libplacebo.pc" ]; then
+          cp builddir/subprojects/libplacebo/libplacebo.pc dev-package/lib/pkgconfig/
+        elif [ -f "builddir/subprojects/libplacebo/meson-uninstalled/libplacebo.pc" ]; then
+          cp builddir/subprojects/libplacebo/meson-uninstalled/libplacebo.pc dev-package/lib/pkgconfig/
+        fi
         
         # Copy documentation
         cp subprojects/libplacebo/README.md dev-package/docs/ || true
