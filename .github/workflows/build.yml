@@ -16,19 +16,22 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
         include:
-          - os: ubuntu-latest
+          - name: linux
+            runs-on: ubuntu-latest
+            container: debian:bookworm
             artifact_name: libplacebo-linux
             setup_deps: |
-              sudo apt-get update
-              sudo apt-get install -y ninja-build pkg-config \
-                libvulkan-dev vulkan-utility-libraries-dev spirv-tools \
+              apt-get update
+              apt-get install -y \
+                build-essential git curl ninja-build pkg-config python3 python3-pip \
+                libvulkan-dev vulkan-validationlayers-dev spirv-tools \
                 glslang-tools spirv-cross \
                 liblcms2-dev libxxhash-dev libunwind-dev
               curl -LsSf https://astral.sh/uv/install.sh | sh
-              source ~/.cargo/env
-          - os: windows-latest
+              export PATH="$HOME/.cargo/bin:$PATH"
+          - name: windows
+            runs-on: windows-latest
             artifact_name: libplacebo-windows
             setup_deps: |
               # Use GitHub Actions pre-installed tools where possible
@@ -54,7 +57,8 @@ jobs:
               # Skip Vulkan SDK - libplacebo wrap now includes Vulkan-Headers submodule
               echo "Using libplacebo's bundled Vulkan headers + vcpkg dependencies"
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runs-on }}
+    container: ${{ matrix.container }}
 
     steps:
     - uses: actions/checkout@v4
@@ -68,7 +72,7 @@ jobs:
 
     - name: Setup build directory
       run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+        if [ "${{ matrix.name }}" = "windows" ]; then
           uv run meson setup builddir --default-library=shared --cmake-prefix-path="$VCPKG_ROOT/installed/x64-windows"
         else
           uv run meson setup builddir --default-library=shared
@@ -90,7 +94,7 @@ jobs:
         mkdir -p dev-package/lib dev-package/include dev-package/docs
         
         # Copy libraries
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+        if [ "${{ matrix.name }}" = "windows" ]; then
           find builddir/subprojects/libplacebo/src -name "*.dll" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
           find builddir/subprojects/libplacebo/src -name "*.lib" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
           find builddir/subprojects/libplacebo/src -name "*.pdb" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
@@ -178,18 +182,18 @@ jobs:
         # Create version info file
         echo "libplacebo $(cat subprojects/libplacebo/VERSION 2>/dev/null || echo 'unknown')" > dev-package/VERSION
         echo "Built on: $(date)" >> dev-package/VERSION
-        echo "Platform: ${{ matrix.os }}" >> dev-package/VERSION
+        echo "Platform: ${{ matrix.name }}" >> dev-package/VERSION
         echo "Architecture: x86_64" >> dev-package/VERSION
       shell: bash
 
     - name: Package artifacts (Linux)
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.name == 'linux'
       run: |
         cd dev-package
         zip -r ../${{ matrix.artifact_name }}.zip .
 
     - name: Package artifacts (Windows)
-      if: matrix.os == 'windows-latest'
+      if: matrix.name == 'windows'
       run: |
         cd dev-package
         7z a ../${{ matrix.artifact_name }}.zip .
