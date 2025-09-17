@@ -70,14 +70,6 @@ jobs:
     - name: Install Python dependencies
       run: uv sync
 
-    - name: Sync shaderc dependencies
-      run: |
-        cd subprojects/shaderc
-        echo "Syncing shaderc dependencies..."
-        python3 utils/git-sync-deps
-        echo "Shaderc dependencies synced successfully"
-      shell: bash
-
     - name: Setup build directory
       run: |
         if [ "${{ matrix.name }}" = "windows" ]; then
@@ -85,6 +77,14 @@ jobs:
         else
           uv run meson setup builddir --default-library=shared
         fi
+      shell: bash
+
+    - name: Sync shaderc dependencies
+      run: |
+        cd subprojects/shaderc
+        echo "Syncing shaderc dependencies..."
+        python3 utils/git-sync-deps
+        echo "Shaderc dependencies synced successfully"
       shell: bash
 
     - name: Compile  
