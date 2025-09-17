@@ -103,12 +103,41 @@ jobs:
           cp -r subprojects/libplacebo/src/include/* dev-package/include/ 2>/dev/null || true
         fi
         
-        # Copy config files
+        # Copy config files - check multiple possible locations
+        config_copied=false
+        for config_path in \
+          "builddir/subprojects/libplacebo/src/config.h" \
+          "builddir/subprojects/libplacebo/config.h" \
+          "subprojects/libplacebo/src/config.h" \
+          "subprojects/libplacebo/config.h"; do
+          if [ -f "$config_path" ]; then
+            cp "$config_path" dev-package/include/
+            config_copied=true
+            echo "Found and copied config.h from: $config_path"
+            break
+          fi
+        done
+        
+        # Copy config.h.in template if available
         if [ -f "subprojects/libplacebo/src/config.h.in" ]; then
           cp subprojects/libplacebo/src/config.h.in dev-package/include/ 2>/dev/null || true
         fi
-        if [ -f "builddir/subprojects/libplacebo/src/config.h" ]; then
-          cp builddir/subprojects/libplacebo/src/config.h dev-package/include/ 2>/dev/null || true
+        
+        # FAIL if config.h was not found - we need to know about this!
+        if [ "$config_copied" = "false" ]; then
+          echo "ERROR: config.h not found in any expected location!"
+          echo "Searched locations:"
+          echo "  - builddir/subprojects/libplacebo/src/config.h"
+          echo "  - builddir/subprojects/libplacebo/config.h" 
+          echo "  - subprojects/libplacebo/src/config.h"
+          echo "  - subprojects/libplacebo/config.h"
+          echo ""
+          echo "Build directory contents:"
+          find builddir -name "config.h" -o -name "config.h.in" | head -10
+          echo ""
+          echo "Source directory contents:"
+          find subprojects/libplacebo -name "config.h" -o -name "config.h.in" | head -10
+          exit 1
         fi
         
         # Copy pkg-config file if it exists
