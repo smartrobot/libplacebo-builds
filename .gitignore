@@ -1,0 +1,73 @@
+# Build directories
+builddir/
+build/
+*build*/
+
+# Meson artifacts
+.meson_logs/
+meson-logs/
+meson-private/
+
+# Subprojects (downloaded dependencies)
+subprojects/*/
+!subprojects/*.wrap
+
+# Python virtual environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Installation directories
+install/
+dist/
+*install*/
+
+# Compiled libraries
+*.so
+*.so.*
+*.dll
+*.dylib
+*.a
+*.lib
+*.exp
+*.pdb
+
+# Object files
+*.o
+*.obj
+
+# Test executables (if any)
+test_*
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Cross-compilation files (if using)
+*.cross
+
+# CMake artifacts (from vcpkg usage)
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+.claude

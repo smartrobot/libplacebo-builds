@@ -1,0 +1,19 @@
+[binaries]
+c = 'cl'
+cpp = 'cl'
+ar = 'lib'
+strip = 'strip'
+pkgconfig = 'pkg-config'
+
+[built-in options]
+c_std = 'c99'
+cpp_std = 'cpp17'
+
+[properties]
+cmake_toolchain_file = 'C:\vcpkg\scripts\buildsystems\vcpkg.cmake'
+
+[host_machine]
+system = 'windows'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
