@@ -19,10 +19,9 @@ jobs:
             setup_deps: |
               sudo apt-get update
               sudo apt-get install -y ninja-build pkg-config python3-jinja2 \
-                libvulkan-dev vulkan-validationlayers-dev spirv-tools \
-                libglslang-dev spirv-cross libspirv-cross-dev \
-                liblcms2-dev libshaderc-dev libxxhash-dev \
-                libunwind-dev
+                libvulkan-dev vulkan-utility-libraries-dev spirv-tools \
+                glslang-tools spirv-cross \
+                liblcms2-dev libxxhash-dev libunwind-dev
               curl -LsSf https://astral.sh/uv/install.sh | sh
               source ~/.cargo/env
               uv tool install meson
