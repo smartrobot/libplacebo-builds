@@ -2,7 +2,7 @@
 builddir/
 build/
 *build*/
-
+/subprojects/libplacebo/.meson-subproject-wrap-hash.txt
 # Meson artifacts
 .meson_logs/
 meson-logs/
@@ -11,7 +11,9 @@ meson-private/
 # Subprojects (downloaded dependencies)
 subprojects/*/
 subprojects/libplacebo/*.wrap
-!subprojects/*.wrap
+subprojects/libplacebo/*
+
+#!subprojects/*.wrap
 
 # Python virtual environment
 .venv/
@@ -72,4 +74,4 @@ CMakeFiles/
 cmake_install.cmake
 
 .claude
-/subprojects/libplacebo/.meson-subproject-wrap-hash.txt
+
