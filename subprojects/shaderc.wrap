@@ -1,6 +1,6 @@
 [wrap-git]
 url = https://github.com/google/shaderc.git
-revision = v2024.4
+revision = v2025.1
 clone-recursive = true
 method = cmake
 
