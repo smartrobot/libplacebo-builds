@@ -1,6 +1,6 @@
 [wrap-git]
 url = https://github.com/haasn/libplacebo.git
-revision = head
+revision = v7.349.0
 depth = 1
 
 [provide]
