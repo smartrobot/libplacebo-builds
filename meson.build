@@ -14,6 +14,7 @@ cc = meson.get_compiler('c')
 
 # Dependencies - ensure all graphics dependencies are available first
 vulkan_dep = dependency('vulkan', required: false, allow_fallback: true)
+vulkan_loader_dep = dependency('vulkan-loader', required: false, allow_fallback: true)
 glslang_dep = dependency('glslang', required: false, allow_fallback: true)
 spirv_dep = dependency('SPIRV', required: false, allow_fallback: true)
 spirv_cross_dep = dependency('spirv-cross-c-shared', required: false, allow_fallback: true)
