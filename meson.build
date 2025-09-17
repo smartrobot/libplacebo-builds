@@ -22,7 +22,7 @@ shaderc_dep = shaderc_sub_proj.dependency('shaderc')
 # Create a proper dependency with version info for libplacebo
 shaderc_dep_with_version = declare_dependency(
   dependencies: shaderc_dep,
-  version: '2024.3'  # Match the version in shaderc.wrap
+  version: '2024.4'  # Match the version in shaderc.wrap
 )
 
 
@@ -32,7 +32,7 @@ meson.override_dependency('shaderc', shaderc_dep_with_version)
 # Get libplacebo via wrap - it should now find shaderc
 libplacebo_proj = subproject('libplacebo', default_options: [
   'default_library=shared',
-  'vulkan=disabled',
+  'vulkan=true',
   'opengl=disabled',
   'demos=false',
   'tests=false'
