@@ -47,15 +47,12 @@ jobs:
               git clone https://github.com/Microsoft/vcpkg.git
               cd vcpkg
               ./bootstrap-vcpkg.bat
-              ./vcpkg.exe install lcms:x64-windows xxhash:x64-windows shaderc:x64-windows
+              ./vcpkg.exe install lcms:x64-windows xxhash:x64-windows shaderc:x64-windows glslang:x64-windows pkgconf:x64-windows
               cd ..
               
               # Set environment for vcpkg
               echo "CMAKE_TOOLCHAIN_FILE=$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
               echo "VCPKG_ROOT=$PWD/vcpkg" >> $GITHUB_ENV
-              
-              # Skip Vulkan SDK - libplacebo wrap now includes Vulkan-Headers submodule
-              echo "Using libplacebo's bundled Vulkan headers + vcpkg dependencies"
 
     runs-on: ${{ matrix.runs-on }}
     container: ${{ matrix.container }}
