@@ -15,41 +15,54 @@ cpp = meson.get_compiler('cpp')
 
 cmake = import('cmake')
 
-# Build shaderc but use the individual library instead of combined to avoid PIC issues
-opt_var = cmake.subproject_options()
-opt_var.add_cmake_defines({
-  'CMAKE_POSITION_INDEPENDENT_CODE': true,
-  'CMAKE_C_FLAGS': '-fPIC',
-  'CMAKE_CXX_FLAGS': '-fPIC',
-  'SHADERC_SKIP_TESTS': true,
-  'SHADERC_SKIP_EXAMPLES': true,
-  'SHADERC_SKIP_COPYRIGHT_CHECK': true,
-  'SPIRV_BUILD_TESTS': false,
-  'SPIRV_TOOLS_BUILD_STATIC': true,
-  'BUILD_SHARED_LIBS': false
-})
-shaderc_sub_proj = cmake.subproject('shaderc', options: opt_var)
+# On Windows, use vcpkg dependencies directly instead of building from source
+if host_machine.system() == 'windows'
+  # Use pkg-config to find vcpkg-installed dependencies
+  shaderc_dep = dependency('shaderc', required: true)
+  meson.override_dependency('shaderc', shaderc_dep)
+  
+  # Also try to find glslang and SPIRV from vcpkg
+  glslang_dep = dependency('glslang', required: false)
+  if glslang_dep.found()
+    meson.override_dependency('glslang', glslang_dep)
+  endif
+  
+  spirv_dep = dependency('SPIRV', required: false)
+  if spirv_dep.found()
+    meson.override_dependency('SPIRV', spirv_dep)
+  endif
+else
+  # Linux: Build shaderc from source
+  opt_var = cmake.subproject_options()
+  opt_var.add_cmake_defines({
+    'CMAKE_POSITION_INDEPENDENT_CODE': true,
+    'CMAKE_C_FLAGS': '-fPIC',
+    'CMAKE_CXX_FLAGS': '-fPIC',
+    'SHADERC_SKIP_TESTS': true,
+    'SHADERC_SKIP_EXAMPLES': true,
+    'SHADERC_SKIP_COPYRIGHT_CHECK': true,
+    'SPIRV_BUILD_TESTS': false,
+    'SPIRV_TOOLS_BUILD_STATIC': true,
+    'BUILD_SHARED_LIBS': false
+  })
+  shaderc_sub_proj = cmake.subproject('shaderc', options: opt_var)
 
-# Use the regular shaderc library instead of shaderc_combined
-shaderc_main_dep = shaderc_sub_proj.dependency('shaderc')
+  # Use the regular shaderc library instead of shaderc_combined
+  shaderc_main_dep = shaderc_sub_proj.dependency('shaderc')
 
-# Create a proper dependency with version info for libplacebo
-shaderc_dep_with_version = declare_dependency(
-  dependencies: shaderc_main_dep,
-  version: '2025.1'
-)
+  # Create a proper dependency with version info for libplacebo
+  shaderc_dep_with_version = declare_dependency(
+    dependencies: shaderc_main_dep,
+    version: '2025.1'
+  )
 
-# Override the shaderc dependency for libplacebo
-meson.override_dependency('shaderc', shaderc_dep_with_version)
+  # Override the shaderc dependency for libplacebo
+  meson.override_dependency('shaderc', shaderc_dep_with_version)
 
-# Also provide glslang and SPIRV dependencies from the CMake build
-# This is needed for Windows where find_library doesn't work well with CMake-built libs
-#try_glslang = shaderc_sub_proj.dependency('glslang')
-#meson.override_dependency('glslang', try_glslang)
-
-# Try to get SPIRV library from the CMake subproject
-try_spirv = shaderc_sub_proj.dependency('SPIRV')
-meson.override_dependency('SPIRV', try_spirv)
+  # Try to get SPIRV library from the CMake subproject
+  try_spirv = shaderc_sub_proj.dependency('SPIRV')
+  meson.override_dependency('SPIRV', try_spirv)
+endif
 
 # Get libplacebo via wrap - it should now find shaderc
 libplacebo_proj = subproject('libplacebo', default_options: [
