@@ -34,26 +34,19 @@ jobs:
             runs-on: windows-latest
             artifact_name: libplacebo-windows
             setup_deps: |
-              # Use GitHub Actions pre-installed tools where possible
-              # Python3, Git, CMake are already available
+              # Use MSYS2 to get pre-built libplacebo and dependencies
+              # This is much simpler and more reliable than building from source
               
-              # Install uv
-              powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+              # Install MSYS2
+              choco install msys2 -y
               
-              # Install ninja via pip (more reliable than choco)
-              pip install ninja
+              # Update MSYS2 and install libplacebo
+              C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm"
+              C:\tools\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm mingw-w64-x86_64-libplacebo mingw-w64-x86_64-pkg-config mingw-w64-x86_64-7zip"
               
-              # Install ALL dependencies via vcpkg to avoid subproject build issues
-              git clone https://github.com/Microsoft/vcpkg.git
-              cd vcpkg
-              ./bootstrap-vcpkg.bat
-              ./vcpkg.exe install vulkan:x64-windows pkgconf:x64-windows glslang:x64-windows spirv-tools:x64-windows spirv-cross:x64-windows vulkan-headers:x64-windows lcms:x64-windows xxhash:x64-windows shaderc:x64-windows 
-              cd ..
-              
-              # Set environment for vcpkg
-              echo "CMAKE_TOOLCHAIN_FILE=$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
-              echo "VCPKG_ROOT=$PWD/vcpkg" >> $GITHUB_ENV
-              echo "PKG_CONFIG_PATH=$PWD/vcpkg/installed/x64-windows/lib/pkgconfig" >> $GITHUB_ENV
+              # Add MSYS2 to PATH
+              echo "C:\tools\msys64\mingw64\bin" >> $GITHUB_PATH
+              echo "C:\tools\msys64\usr\bin" >> $GITHUB_PATH
 
     runs-on: ${{ matrix.runs-on }}
     container: ${{ matrix.container }}
@@ -66,17 +59,21 @@ jobs:
       run: ${{ matrix.setup_deps }}
 
     - name: Install Python dependencies
-      run: uv sync
+      run: |
+        if [ "${{ matrix.name }}" != "windows" ]; then
+          uv sync
+        else
+          echo "Skipping Python dependencies on Windows - using MSYS2 libplacebo"
+        fi
+      shell: bash
 
     - name: Download subprojects
       run: |
-        echo "Downloading subprojects..."
-        if [ "${{ matrix.name }}" = "windows" ]; then
-          # Windows: Only download libplacebo, skip others (using vcpkg dependencies)
-          uv run meson subprojects download libplacebo || true
-          echo "Skipping other subprojects on Windows - using vcpkg dependencies"
-        else
+        if [ "${{ matrix.name }}" != "windows" ]; then
+          echo "Downloading subprojects..."
           uv run meson subprojects download
+        else
+          echo "Skipping subprojects download on Windows - using MSYS2 libplacebo"
         fi
       shell: bash
 
@@ -88,21 +85,26 @@ jobs:
           python3 utils/git-sync-deps
           echo "Shaderc dependencies synced successfully"
         else
-          echo "Skipping shaderc sync on Windows - using vcpkg dependencies"
+          echo "Skipping shaderc sync on Windows - using MSYS2 libplacebo"
         fi
       shell: bash
 
     - name: Setup build directory
       run: |
-        if [ "${{ matrix.name }}" = "windows" ]; then
-          uv run meson setup builddir --default-library=shared --cmake-prefix-path="$VCPKG_ROOT/installed/x64-windows"
-        else
+        if [ "${{ matrix.name }}" != "windows" ]; then
           uv run meson setup builddir --default-library=shared
+        else
+          echo "Skipping build setup on Windows - using MSYS2 libplacebo"
         fi
       shell: bash
 
     - name: Compile  
-      run: uv run meson compile -C builddir placebo -j 4
+      run: |
+        if [ "${{ matrix.name }}" != "windows" ]; then
+          uv run meson compile -C builddir placebo -j 4
+        else
+          echo "Skipping compilation on Windows - using pre-built MSYS2 libplacebo"
+        fi
 
     - name: Test (skip - build verification only)
       run: echo "Skipping tests - build verification sufficient"
@@ -115,44 +117,70 @@ jobs:
         # Create development package structure
         mkdir -p dev-package/lib dev-package/include dev-package/docs
         
-        # Copy libraries
         if [ "${{ matrix.name }}" = "windows" ]; then
-          find builddir/subprojects/libplacebo/src -name "*.dll" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
-          find builddir/subprojects/libplacebo/src -name "*.lib" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
-          find builddir/subprojects/libplacebo/src -name "*.pdb" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
+          # Windows: Copy from MSYS2 installation
+          echo "Packaging MSYS2 libplacebo files..."
+          
+          # Copy libraries
+          cp /c/tools/msys64/mingw64/bin/libplacebo*.dll dev-package/lib/ 2>/dev/null || true
+          cp /c/tools/msys64/mingw64/lib/libplacebo*.dll.a dev-package/lib/ 2>/dev/null || true
+          cp /c/tools/msys64/mingw64/lib/libplacebo*.a dev-package/lib/ 2>/dev/null || true
+          
+          # Copy headers
+          cp -r /c/tools/msys64/mingw64/include/libplacebo dev-package/include/ 2>/dev/null || true
+          
+          # Copy pkg-config files
+          mkdir -p dev-package/lib/pkgconfig
+          cp /c/tools/msys64/mingw64/lib/pkgconfig/libplacebo.pc dev-package/lib/pkgconfig/ 2>/dev/null || true
+          
+          # Copy documentation from MSYS2 if available
+          cp /c/tools/msys64/mingw64/share/doc/libplacebo/README* dev-package/docs/ 2>/dev/null || true
+          cp /c/tools/msys64/mingw64/share/licenses/libplacebo/LICENSE* dev-package/docs/ 2>/dev/null || true
+          
+          # Get version from pkg-config
+          echo "libplacebo $(pkg-config --modversion libplacebo 2>/dev/null || echo 'unknown')" > dev-package/VERSION
         else
+          # Linux: Copy from build directory
           find builddir/subprojects/libplacebo/src -name "*.so*" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
+          
+          # Copy headers
+          if [ -d "subprojects/libplacebo/src/include" ]; then
+            cp -r subprojects/libplacebo/src/include/* dev-package/include/ 2>/dev/null || true
+          fi
+          
+          # Copy generated config.h from build directory
+          if [ -f "builddir/subprojects/libplacebo/src/include/libplacebo/config.h" ]; then
+            cp builddir/subprojects/libplacebo/src/include/libplacebo/config.h dev-package/include/libplacebo/
+            echo "Copied generated config.h from build directory"
+          else
+            echo "ERROR: Generated config.h not found!"
+            echo "Expected location: builddir/subprojects/libplacebo/src/include/libplacebo/config.h"
+            echo ""
+            echo "Actual config.h files found:"
+            find builddir -name "config.h" | head -10
+            exit 1
+          fi
+          
+          # Copy pkg-config file if it exists
+          mkdir -p dev-package/lib/pkgconfig
+          if [ -f "builddir/subprojects/libplacebo/libplacebo.pc" ]; then
+            cp builddir/subprojects/libplacebo/libplacebo.pc dev-package/lib/pkgconfig/
+          elif [ -f "builddir/subprojects/libplacebo/meson-uninstalled/libplacebo.pc" ]; then
+            cp builddir/subprojects/libplacebo/meson-uninstalled/libplacebo.pc dev-package/lib/pkgconfig/
+          fi
+          
+          # Copy documentation
+          cp subprojects/libplacebo/README.md dev-package/docs/ || true
+          cp subprojects/libplacebo/LICENSE dev-package/docs/ || true
+          
+          # Create version info file
+          echo "libplacebo $(cat subprojects/libplacebo/VERSION 2>/dev/null || echo 'unknown')" > dev-package/VERSION
         fi
         
-        # Copy headers
-        if [ -d "subprojects/libplacebo/src/include" ]; then
-          cp -r subprojects/libplacebo/src/include/* dev-package/include/ 2>/dev/null || true
-        fi
-        
-        # Copy generated config.h from build directory
-        if [ -f "builddir/subprojects/libplacebo/src/include/libplacebo/config.h" ]; then
-          cp builddir/subprojects/libplacebo/src/include/libplacebo/config.h dev-package/include/libplacebo/
-          echo "Copied generated config.h from build directory"
-        else
-          echo "ERROR: Generated config.h not found!"
-          echo "Expected location: builddir/subprojects/libplacebo/src/include/libplacebo/config.h"
-          echo ""
-          echo "Actual config.h files found:"
-          find builddir -name "config.h" | head -10
-          exit 1
-        fi
-        
-        # Copy pkg-config file if it exists
-        mkdir -p dev-package/lib/pkgconfig
-        if [ -f "builddir/subprojects/libplacebo/libplacebo.pc" ]; then
-          cp builddir/subprojects/libplacebo/libplacebo.pc dev-package/lib/pkgconfig/
-        elif [ -f "builddir/subprojects/libplacebo/meson-uninstalled/libplacebo.pc" ]; then
-          cp builddir/subprojects/libplacebo/meson-uninstalled/libplacebo.pc dev-package/lib/pkgconfig/
-        fi
-        
-        # Copy documentation
-        cp subprojects/libplacebo/README.md dev-package/docs/ || true
-        cp subprojects/libplacebo/LICENSE dev-package/docs/ || true
+        # Add build metadata for all platforms
+        echo "Built on: $(date)" >> dev-package/VERSION
+        echo "Platform: ${{ matrix.name }}" >> dev-package/VERSION
+        echo "Architecture: x86_64" >> dev-package/VERSION
         
         # Create comprehensive usage guide
         cat > dev-package/README.txt << 'EOF'
@@ -195,12 +223,6 @@ jobs:
         
         For documentation visit: https://libplacebo.org/
         EOF
-        
-        # Create version info file
-        echo "libplacebo $(cat subprojects/libplacebo/VERSION 2>/dev/null || echo 'unknown')" > dev-package/VERSION
-        echo "Built on: $(date)" >> dev-package/VERSION
-        echo "Platform: ${{ matrix.name }}" >> dev-package/VERSION
-        echo "Architecture: x86_64" >> dev-package/VERSION
       shell: bash
 
     - name: Package artifacts (Linux)
