@@ -43,16 +43,17 @@ jobs:
               # Install ninja via pip (more reliable than choco)
               pip install ninja
               
-              # Install additional dependencies via vcpkg to match Linux feature set
+              # Install ALL dependencies via vcpkg to avoid subproject build issues
               git clone https://github.com/Microsoft/vcpkg.git
               cd vcpkg
               ./bootstrap-vcpkg.bat
-              ./vcpkg.exe install lcms:x64-windows xxhash:x64-windows shaderc:x64-windows glslang:x64-windows pkgconf:x64-windows
+              ./vcpkg.exe install vulkan:x64-windows vulkan-headers:x64-windows lcms:x64-windows xxhash:x64-windows shaderc:x64-windows glslang:x64-windows spirv-tools:x64-windows spirv-cross:x64-windows pkgconf:x64-windows
               cd ..
               
               # Set environment for vcpkg
               echo "CMAKE_TOOLCHAIN_FILE=$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
               echo "VCPKG_ROOT=$PWD/vcpkg" >> $GITHUB_ENV
+              echo "PKG_CONFIG_PATH=$PWD/vcpkg/installed/x64-windows/lib/pkgconfig" >> $GITHUB_ENV
 
     runs-on: ${{ matrix.runs-on }}
     container: ${{ matrix.container }}
@@ -71,11 +72,9 @@ jobs:
       run: |
         echo "Downloading subprojects..."
         if [ "${{ matrix.name }}" = "windows" ]; then
-          # Windows: Download subprojects one by one to avoid lockfile issues
+          # Windows: Only download libplacebo, skip others (using vcpkg dependencies)
           uv run meson subprojects download libplacebo || true
-          uv run meson subprojects download shaderc || true
-          uv run meson subprojects download vulkan-headers || true
-          uv run meson subprojects download spirv-cross || true
+          echo "Skipping other subprojects on Windows - using vcpkg dependencies"
         else
           uv run meson subprojects download
         fi
@@ -83,10 +82,14 @@ jobs:
 
     - name: Sync shaderc dependencies
       run: |
-        cd subprojects/shaderc
-        echo "Syncing shaderc dependencies..."
-        python3 utils/git-sync-deps
-        echo "Shaderc dependencies synced successfully"
+        if [ "${{ matrix.name }}" != "windows" ]; then
+          cd subprojects/shaderc
+          echo "Syncing shaderc dependencies..."
+          python3 utils/git-sync-deps
+          echo "Shaderc dependencies synced successfully"
+        else
+          echo "Skipping shaderc sync on Windows - using vcpkg dependencies"
+        fi
       shell: bash
 
     - name: Setup build directory
