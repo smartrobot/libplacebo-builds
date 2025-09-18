@@ -44,8 +44,8 @@ meson.override_dependency('shaderc', shaderc_dep_with_version)
 
 # Also provide glslang and SPIRV dependencies from the CMake build
 # This is needed for Windows where find_library doesn't work well with CMake-built libs
-try_glslang = shaderc_sub_proj.dependency('glslang')
-meson.override_dependency('glslang', try_glslang)
+#try_glslang = shaderc_sub_proj.dependency('glslang')
+#meson.override_dependency('glslang', try_glslang)
 
 # Try to get SPIRV library from the CMake subproject
 try_spirv = shaderc_sub_proj.dependency('SPIRV')
