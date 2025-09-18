@@ -47,7 +47,7 @@ jobs:
               git clone https://github.com/Microsoft/vcpkg.git
               cd vcpkg
               ./bootstrap-vcpkg.bat
-              ./vcpkg.exe install vulkan:x64-windows vulkan-headers:x64-windows lcms:x64-windows xxhash:x64-windows shaderc:x64-windows glslang:x64-windows spirv-tools:x64-windows spirv-cross:x64-windows pkgconf:x64-windows
+              ./vcpkg.exe install vulkan:x64-windows pkgconf:x64-windows glslang:x64-windows spirv-tools:x64-windows spirv-cross:x64-windows vulkan-headers:x64-windows lcms:x64-windows xxhash:x64-windows shaderc:x64-windows 
               cd ..
               
               # Set environment for vcpkg
