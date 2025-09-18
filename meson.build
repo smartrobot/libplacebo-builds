@@ -42,6 +42,15 @@ shaderc_dep_with_version = declare_dependency(
 # Override the shaderc dependency for libplacebo
 meson.override_dependency('shaderc', shaderc_dep_with_version)
 
+# Also provide glslang and SPIRV dependencies from the CMake build
+# This is needed for Windows where find_library doesn't work well with CMake-built libs
+try_glslang = shaderc_sub_proj.dependency('glslang')
+meson.override_dependency('glslang', try_glslang)
+
+# Try to get SPIRV library from the CMake subproject
+try_spirv = shaderc_sub_proj.dependency('SPIRV')
+meson.override_dependency('SPIRV', try_spirv)
+
 # Get libplacebo via wrap - it should now find shaderc
 libplacebo_proj = subproject('libplacebo', default_options: [
   'default_library=shared',
