@@ -7,6 +7,10 @@ on:
     branches: [ main ]
   release:
     types: [ created ]
+  schedule:
+    # Check for libplacebo updates daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual triggering
 
 permissions:
   contents: write
@@ -19,8 +23,50 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need full history to check submodule updates
+
+    - name: Check for libplacebo updates
+      id: check_updates
+      run: |
+        # Get current libplacebo commit in submodule
+        git submodule update --init
+        CURRENT_COMMIT=$(git submodule status subprojects/libplacebo | cut -c2-41)
+        
+        # Get latest commit from libplacebo main branch
+        cd subprojects/libplacebo
+        git fetch origin main
+        LATEST_COMMIT=$(git rev-parse origin/main)
+        
+        echo "current_commit=$CURRENT_COMMIT" >> $GITHUB_OUTPUT
+        echo "latest_commit=$LATEST_COMMIT" >> $GITHUB_OUTPUT
+        
+        if [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then
+          echo "needs_build=true" >> $GITHUB_OUTPUT
+          echo "✅ libplacebo has updates: $CURRENT_COMMIT -> $LATEST_COMMIT"
+        else
+          echo "needs_build=false" >> $GITHUB_OUTPUT
+          echo "⏭️ libplacebo is up to date: $CURRENT_COMMIT"
+        fi
+
+    - name: Update libplacebo submodule
+      if: steps.check_updates.outputs.needs_build == 'true' || github.event_name != 'schedule'
+      run: |
+        cd subprojects/libplacebo
+        git checkout origin/main
+        cd ../..
+        git add subprojects/libplacebo
+        
+        # Create commit if there are changes
+        if ! git diff --cached --quiet; then
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update libplacebo to $(cd subprojects/libplacebo && git rev-parse --short HEAD)"
+          git push
+        fi
 
     - name: Setup dependencies
+      if: steps.check_updates.outputs.needs_build == 'true' || github.event_name != 'schedule'
       shell: bash
       run: |
         apt-get update
@@ -160,7 +206,7 @@ jobs:
   auto-release:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && contains(github.event.head_commit.message, 'Update libplacebo to')
     
     steps:
     - name: Download all artifacts
@@ -170,18 +216,28 @@ jobs:
       id: sha
       run: echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
       
+    - name: Get libplacebo version
+      id: version
+      run: |
+        # Extract libplacebo commit from the commit message
+        COMMIT_MSG="${{ github.event.head_commit.message }}"
+        LIBPLACEBO_SHORT=$(echo "$COMMIT_MSG" | grep -o "Update libplacebo to [a-f0-9]\{7\}" | cut -d' ' -f4 || echo "unknown")
+        echo "libplacebo_short=$LIBPLACEBO_SHORT" >> $GITHUB_OUTPUT
+        
+        # Use libplacebo commit as tag
+        echo "tag_name=libplacebo-$LIBPLACEBO_SHORT" >> $GITHUB_OUTPUT
+
     - name: Create automatic release
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: auto-${{ steps.sha.outputs.short_sha }}
-        name: "Automatic Build ${{ steps.sha.outputs.short_sha }}"
+        tag_name: ${{ steps.version.outputs.tag_name }}
+        name: "libplacebo ${{ steps.version.outputs.libplacebo_short }}"
         body: |
-          **Automatic release from latest main branch**
+          **New libplacebo build available**
           
-          - Commit: ${{ github.sha }}
-          - Author: ${{ github.actor }}
-          - Vulkan-only libplacebo build
-          - Linux only
+          - libplacebo commit: ${{ steps.version.outputs.libplacebo_short }}
+          - Build commit: ${{ steps.sha.outputs.short_sha }}
+          - Vulkan-only build for Linux
           
           ## Download
           - **Linux**: libplacebo-linux.zip
