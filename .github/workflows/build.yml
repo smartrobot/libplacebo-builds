@@ -14,97 +14,48 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - name: linux
-            runs-on: ubuntu-latest
-            container: debian:bookworm
-            artifact_name: libplacebo-linux
-            setup_deps: |
-              apt-get update
-              apt-get install -y \
-                build-essential git curl ninja-build pkg-config python3 python3-pip zip cmake \
-                libvulkan-dev vulkan-validationlayers-dev spirv-tools \
-                glslang-tools spirv-cross libshaderc-dev \
-                liblcms2-dev libxxhash-dev libunwind-dev
-              curl -LsSf https://astral.sh/uv/install.sh | sh
-              export PATH="$HOME/.cargo/bin:$PATH"
-          - name: windows
-            runs-on: windows-latest
-            artifact_name: libplacebo-windows
-            setup_deps: |
-              # Use MSYS2 to get pre-built libplacebo and dependencies
-              # This is much simpler and more reliable than building from source
-              
-              # Install MSYS2
-              choco install msys2 -y
-              
-              # Update MSYS2 and install libplacebo
-              C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm"
-              C:\tools\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm mingw-w64-x86_64-libplacebo mingw-w64-x86_64-pkg-config mingw-w64-x86_64-7zip"
-              
-              # Add MSYS2 to PATH
-              echo "C:\tools\msys64\mingw64\bin" >> $GITHUB_PATH
-              echo "C:\tools\msys64\usr\bin" >> $GITHUB_PATH
-
-    runs-on: ${{ matrix.runs-on }}
-    container: ${{ matrix.container }}
+    runs-on: ubuntu-latest
+    container: debian:bookworm
 
     steps:
     - uses: actions/checkout@v4
 
     - name: Setup dependencies
       shell: bash
-      run: ${{ matrix.setup_deps }}
+      run: |
+        apt-get update
+        apt-get install -y \
+          build-essential git curl ninja-build pkg-config python3 python3-pip zip cmake \
+          libvulkan-dev vulkan-validationlayers-dev spirv-tools \
+          glslang-tools spirv-cross libshaderc-dev \
+          liblcms2-dev libxxhash-dev libunwind-dev
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.cargo/bin:$PATH"
 
     - name: Install Python dependencies
-      run: |
-        if [ "${{ matrix.name }}" != "windows" ]; then
-          uv sync
-        else
-          echo "Skipping Python dependencies on Windows - using MSYS2 libplacebo"
-        fi
+      run: uv sync
       shell: bash
 
     - name: Download subprojects
       run: |
-        if [ "${{ matrix.name }}" != "windows" ]; then
-          echo "Downloading subprojects..."
-          uv run meson subprojects download
-        else
-          echo "Skipping subprojects download on Windows - using MSYS2 libplacebo"
-        fi
+        echo "Downloading subprojects..."
+        uv run meson subprojects download
       shell: bash
 
     - name: Sync shaderc dependencies
       run: |
-        if [ "${{ matrix.name }}" != "windows" ]; then
-          cd subprojects/shaderc
-          echo "Syncing shaderc dependencies..."
-          python3 utils/git-sync-deps
-          echo "Shaderc dependencies synced successfully"
-        else
-          echo "Skipping shaderc sync on Windows - using MSYS2 libplacebo"
-        fi
+        cd subprojects/shaderc
+        echo "Syncing shaderc dependencies..."
+        python3 utils/git-sync-deps
+        echo "Shaderc dependencies synced successfully"
       shell: bash
 
     - name: Setup build directory
-      run: |
-        if [ "${{ matrix.name }}" != "windows" ]; then
-          uv run meson setup builddir --default-library=shared
-        else
-          echo "Skipping build setup on Windows - using MSYS2 libplacebo"
-        fi
+      run: uv run meson setup builddir --default-library=shared
       shell: bash
 
     - name: Compile  
-      run: |
-        if [ "${{ matrix.name }}" != "windows" ]; then
-          uv run meson compile -C builddir placebo -j 4
-        else
-          echo "Skipping compilation on Windows - using pre-built MSYS2 libplacebo"
-        fi
+      run: uv run meson compile -C builddir placebo -j 4
 
     - name: Test (skip - build verification only)
       run: echo "Skipping tests - build verification sufficient"
@@ -117,69 +68,45 @@ jobs:
         # Create development package structure
         mkdir -p dev-package/lib dev-package/include dev-package/docs
         
-        if [ "${{ matrix.name }}" = "windows" ]; then
-          # Windows: Copy from MSYS2 installation
-          echo "Packaging MSYS2 libplacebo files..."
-          
-          # Copy libraries
-          cp /c/tools/msys64/mingw64/bin/libplacebo*.dll dev-package/lib/ 2>/dev/null || true
-          cp /c/tools/msys64/mingw64/lib/libplacebo*.dll.a dev-package/lib/ 2>/dev/null || true
-          cp /c/tools/msys64/mingw64/lib/libplacebo*.a dev-package/lib/ 2>/dev/null || true
-          
-          # Copy headers
-          cp -r /c/tools/msys64/mingw64/include/libplacebo dev-package/include/ 2>/dev/null || true
-          
-          # Copy pkg-config files
-          mkdir -p dev-package/lib/pkgconfig
-          cp /c/tools/msys64/mingw64/lib/pkgconfig/libplacebo.pc dev-package/lib/pkgconfig/ 2>/dev/null || true
-          
-          # Copy documentation from MSYS2 if available
-          cp /c/tools/msys64/mingw64/share/doc/libplacebo/README* dev-package/docs/ 2>/dev/null || true
-          cp /c/tools/msys64/mingw64/share/licenses/libplacebo/LICENSE* dev-package/docs/ 2>/dev/null || true
-          
-          # Get version from pkg-config
-          echo "libplacebo $(pkg-config --modversion libplacebo 2>/dev/null || echo 'unknown')" > dev-package/VERSION
-        else
-          # Linux: Copy from build directory
-          find builddir/subprojects/libplacebo/src -name "*.so*" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
-          
-          # Copy headers
-          if [ -d "subprojects/libplacebo/src/include" ]; then
-            cp -r subprojects/libplacebo/src/include/* dev-package/include/ 2>/dev/null || true
-          fi
-          
-          # Copy generated config.h from build directory
-          if [ -f "builddir/subprojects/libplacebo/src/include/libplacebo/config.h" ]; then
-            cp builddir/subprojects/libplacebo/src/include/libplacebo/config.h dev-package/include/libplacebo/
-            echo "Copied generated config.h from build directory"
-          else
-            echo "ERROR: Generated config.h not found!"
-            echo "Expected location: builddir/subprojects/libplacebo/src/include/libplacebo/config.h"
-            echo ""
-            echo "Actual config.h files found:"
-            find builddir -name "config.h" | head -10
-            exit 1
-          fi
-          
-          # Copy pkg-config file if it exists
-          mkdir -p dev-package/lib/pkgconfig
-          if [ -f "builddir/subprojects/libplacebo/libplacebo.pc" ]; then
-            cp builddir/subprojects/libplacebo/libplacebo.pc dev-package/lib/pkgconfig/
-          elif [ -f "builddir/subprojects/libplacebo/meson-uninstalled/libplacebo.pc" ]; then
-            cp builddir/subprojects/libplacebo/meson-uninstalled/libplacebo.pc dev-package/lib/pkgconfig/
-          fi
-          
-          # Copy documentation
-          cp subprojects/libplacebo/README.md dev-package/docs/ || true
-          cp subprojects/libplacebo/LICENSE dev-package/docs/ || true
-          
-          # Create version info file
-          echo "libplacebo $(cat subprojects/libplacebo/VERSION 2>/dev/null || echo 'unknown')" > dev-package/VERSION
+        # Linux: Copy from build directory
+        find builddir/subprojects/libplacebo/src -name "*.so*" -exec cp {} dev-package/lib/ \; 2>/dev/null || true
+        
+        # Copy headers
+        if [ -d "subprojects/libplacebo/src/include" ]; then
+          cp -r subprojects/libplacebo/src/include/* dev-package/include/ 2>/dev/null || true
         fi
         
-        # Add build metadata for all platforms
+        # Copy generated config.h from build directory
+        if [ -f "builddir/subprojects/libplacebo/src/include/libplacebo/config.h" ]; then
+          cp builddir/subprojects/libplacebo/src/include/libplacebo/config.h dev-package/include/libplacebo/
+          echo "Copied generated config.h from build directory"
+        else
+          echo "ERROR: Generated config.h not found!"
+          echo "Expected location: builddir/subprojects/libplacebo/src/include/libplacebo/config.h"
+          echo ""
+          echo "Actual config.h files found:"
+          find builddir -name "config.h" | head -10
+          exit 1
+        fi
+        
+        # Copy pkg-config file if it exists
+        mkdir -p dev-package/lib/pkgconfig
+        if [ -f "builddir/subprojects/libplacebo/libplacebo.pc" ]; then
+          cp builddir/subprojects/libplacebo/libplacebo.pc dev-package/lib/pkgconfig/
+        elif [ -f "builddir/subprojects/libplacebo/meson-uninstalled/libplacebo.pc" ]; then
+          cp builddir/subprojects/libplacebo/meson-uninstalled/libplacebo.pc dev-package/lib/pkgconfig/
+        fi
+        
+        # Copy documentation
+        cp subprojects/libplacebo/README.md dev-package/docs/ || true
+        cp subprojects/libplacebo/LICENSE dev-package/docs/ || true
+        
+        # Create version info file
+        echo "libplacebo $(cat subprojects/libplacebo/VERSION 2>/dev/null || echo 'unknown')" > dev-package/VERSION
+        
+        # Add build metadata
         echo "Built on: $(date)" >> dev-package/VERSION
-        echo "Platform: ${{ matrix.name }}" >> dev-package/VERSION
+        echo "Platform: linux" >> dev-package/VERSION
         echo "Architecture: x86_64" >> dev-package/VERSION
         
         # Create comprehensive usage guide
@@ -187,10 +114,10 @@ jobs:
         libplacebo Development Package
         =============================
         
-        Cross-platform GPU-accelerated video/image rendering library
+        GPU-accelerated video/image rendering library for Linux
         
         Directory Structure:
-        - lib/          : Shared libraries (.so/.dll) and import libraries (.lib)
+        - lib/          : Shared libraries (.so)
         - include/      : C/C++ header files
         - docs/         : Documentation and license
         - lib/pkgconfig/: pkg-config files for build systems
@@ -202,12 +129,6 @@ jobs:
         
         Linux (pkg-config):
         gcc $(pkg-config --cflags --libs ./lib/pkgconfig/libplacebo.pc) myapp.c
-        
-        Windows (MSVC):
-        cl /I.\include myapp.c .\lib\placebo.lib
-        
-        Windows (MinGW):
-        gcc -I./include -L./lib -lplacebo myapp.c
         
         CMake Integration:
         find_library(PLACEBO_LIBRARY NAMES placebo PATHS ${CMAKE_CURRENT_SOURCE_DIR}/lib)
@@ -225,23 +146,16 @@ jobs:
         EOF
       shell: bash
 
-    - name: Package artifacts (Linux)
-      if: matrix.name == 'linux'
+    - name: Package artifacts
       run: |
         cd dev-package
-        zip -r ../${{ matrix.artifact_name }}.zip .
-
-    - name: Package artifacts (Windows)
-      if: matrix.name == 'windows'
-      run: |
-        cd dev-package
-        7z a ../${{ matrix.artifact_name }}.zip .
+        zip -r ../libplacebo-linux.zip .
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.artifact_name }}
-        path: ${{ matrix.artifact_name }}.zip
+        name: libplacebo-linux
+        path: libplacebo-linux.zip
 
   auto-release:
     needs: build
@@ -267,14 +181,13 @@ jobs:
           - Commit: ${{ github.sha }}
           - Author: ${{ github.actor }}
           - Vulkan-only libplacebo build
-          - Cross-platform: Linux and Windows
+          - Linux only
           
           ## Download
           - **Linux**: libplacebo-linux.zip
-          - **Windows**: libplacebo-windows.zip
           
-          Both packages include:
-          - Shared libraries (.so/.dll)
+          Package includes:
+          - Shared libraries (.so)
           - Header files for development
           - pkg-config files
           - Documentation
@@ -282,7 +195,6 @@ jobs:
           Built with Meson + Vulkan support only.
         files: |
           libplacebo-linux/*.zip
-          libplacebo-windows/*.zip
         prerelease: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -301,6 +213,5 @@ jobs:
       with:
         files: |
           libplacebo-linux/*.zip
-          libplacebo-windows/*.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
